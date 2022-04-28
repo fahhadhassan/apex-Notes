@@ -1,0 +1,108 @@
+1.ADD IN DYNAMIC ACTION OR CHANGE AT ITEM:
+
+apex.server.process( 'Get Data SCHEDULE',   //SHOULD BE SAME AS PROCESS NAME
+    { pageItems:'#P5_SCHEDULE_NO',   // PAGE ITEM WHERE YOU GET RETURN VALUE
+      x01: apex.item('P5_SCHEDULE_NO').getValue() //FUNTION TO GET LOV RETURN VALUE
+    },  // Parameter to be passed to the server
+    {
+        success: function (pData) {             // Success
+            console.log(pData);
+            apex.item('P5_DEP_TIME').setValue(pData.DEP_TIME);
+            apex.item('P5_SERVICE').setValue(pData.SERVICE);
+               apex.item('P_SERVICE_TYPE').setValue(pData.SERVICE_TYPE);
+            apex.item('P5_ROUTE').setValue(pData.ROUTE);
+               apex.item('P5_ESTIMATED_DURATION').setValue(pData.ESTIMATED_DURATION);
+            apex.item('P5_R_STATUS').setValue(pData.R_STATUS);
+               apex.item('P5_ROUTE_ID').setValue(pData.ROUTE_ID);
+        },
+        error: function(e){
+            console.log("Error: ", e);
+        },
+        dataType: "json"                        // Response type should be json. because we are fetching data by json formate
+    }
+);
+
+
+2. ADD IN PROCESS AJAX WITH SAME NAME LIKE STEP 1
+
+declare
+v_emp SCH_SCHEDULE_MAST%rowtype; -- used for * not multiple columns
+begin
+
+    select * 
+        into v_emp FROM SCH_SCHEDULE_MAST SSM
+WHERE SCHEDULE_NO =apex_application.g_x01
+and SCHEDULE_dATE > SYSDATE - 120 AND STATUS NOT IN ('DROPPED','RESCUE', 'CLOSED')               --this variable hold id value of lov item (apex_application.g_x01)
+    fetch first row only;
+--okay now? ok but how may i use subquery, don'y use sbqry, create functions/procedures like GET_LOOKUP_NAME ok done
+    apex_json.open_object;
+    apex_json.write('DEP_TIME', TO_CHAR(v_emp.DEP_TIME,'DD-MON-YYYY HH:MI:SS AM'));-- update others accordingly
+    apex_json.write('SERVICE', ALL_DESC.GET_LOOKUP_NAME(v_emp.SERVICE_TYPE));
+    apex_json.write('SERVICE_TYPE', v_emp.SERVICE_TYPE);
+    apex_json.write('ROUTE', ALL_DESC.GET_ROUTE_NAME(v_emp.ROUTE_ID));
+        apex_json.write('ESTIMATED_DURATION', EACH.get_route_time(v_emp.ROUTE_ID) );
+    apex_json.write('R_STATUS', v_emp.ROUTE_STATUS);
+    apex_json.write('ROUTE_ID', v_emp.ROUTE_ID);
+    apex_json.close_all;
+    
+    --htp.p('')   you can also use for test formate as well
+
+    exception when no_data_found then
+        null;
+       -- v_emp.ename := 'Error';
+
+end;
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+IF WE GET DATA FROM JOINS THEN WE USE CURSOR AND LOOP IN AJAX
+
+
+
+declare
+
+CURSOR C1 IS 
+    (SELECT DISTINCT CBD.CUSTOMER, CBD.BOOKING_POINT ,CDD.CONSIGNMENT_STATUS,CDD.NEXT_STATION  , CBD.CONSIGNEE_MOB, CDD.SOURCE , CDD.DESTINATION, CBD.BOOKING_DATE, CBD.BOOKING_TIME 
+FROM SCH_CARGO_DISPATCH_DETAIL CDD, SCH_CARGO_BOOKING_DETAIL CBD 
+WHERE CBD.CONSIGNMENT_SERIAL = CDD.CONSIGNMENT_SERIAL AND  CDD.CONSIGNMENT_STATUS =  'Dispatched'  AND CBD.CONSIGNMENT_SERIAL = apex_application.g_x01);
+
+v_emp C1%rowtype;
+v_LOOK APP_LOOKUP_DET%rowtype;
+v_LOOK1 APP_LOOKUP_DET%rowtype;
+begin
+
+OPEN C1;
+    LOOP
+        FETCH C1 INTO v_emp;
+        EXIT WHEN C1%NOTFOUND;
+         
+       
+SELECT * INTO v_LOOK FROM APP_LOOKUP_DET  WHERE LOOKUP_ID = '010' AND  UPPER(DESCRIPTION) LIKE '%'||TRIM(UPPER(v_emp.SOURCE))||'%'  FETCH FIRST 1 ROWS ONLY;
+SELECT * INTO v_LOOK1 FROM APP_LOOKUP_DET  WHERE LOOKUP_ID = '010' AND  UPPER(DESCRIPTION) LIKE '%'||TRIM(UPPER(v_emp.DESTINATION))||'%'  FETCH FIRST 1 ROWS ONLY;
+
+    apex_json.open_object;
+    apex_json.write('BUILTY_DET', v_emp.CUSTOMER||' - '|| v_emp.BOOKING_POINT ||' - '||v_emp.CONSIGNMENT_STATUS||' - '||v_emp.NEXT_STATION);-- update others accordingly  
+    apex_json.write('CUSTOMER_NAME', v_emp.CUSTOMER);
+     apex_json.write('CUSTOMER_CONTACT', v_emp.CONSIGNEE_MOB);
+      apex_json.write('FROM_CITY', v_LOOK.LOOKUP_DET_ID);
+       apex_json.write('TO_CITY', v_LOOK1.LOOKUP_DET_ID);
+        apex_json.write('DATE_TIME', v_emp.BOOKING_DATE||' '|| v_emp.BOOKING_TIME);
+
+
+       
+    apex_json.close_all;
+  
+
+     END LOOP;
+    CLOSE C1;
+
+    exception when no_data_found then
+        null;
+       -- v_emp.ename := 'Error';
+
+end;
+
+
+
+
+   

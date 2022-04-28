@@ -1,0 +1,9 @@
+change logo on login page in inline css
+
+span.t-Login-logo{
+	background-image:url('#APP_IMAGES#large.gif');
+    background-color: transparent;
+	/*background-size:cover; */
+	width:100px;
+	height:100px;
+}

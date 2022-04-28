@@ -1,0 +1,8 @@
+BEGIN 
+SELECT trunc(months_between(to_date(:P5036_WARRANTY_END),to_date(:P5036_WARRANTY_START)) / 12) || ' ' ||'years' || ' ' ||
+    trunc(months_between(to_date(:P5036_WARRANTY_END),to_date(:P5036_WARRANTY_START)) - (trunc(months_between(to_date(:P5036_WARRANTY_END),to_date(:P5036_WARRANTY_START)) / 12) * 12)) || ' ' ||'months' || ' ' ||
+  (trunc(to_date(:P5036_WARRANTY_END)) - add_months(to_date(:P5036_WARRANTY_START), trunc(months_between(to_date(:P5036_WARRANTY_END),to_date(:P5036_WARRANTY_START))))) || ' ' ||'days'
+ into :P5036_TOTAL_WARRANTY FROM DUAL;
+END;
+
+
